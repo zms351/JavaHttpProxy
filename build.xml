@@ -1,0 +1,16 @@
+<project name="movie_spider-compile" default="compile1">
+    <target name="compile1">
+        <javac srcdir="./src"
+               destdir="./build"
+               debug="on"
+               source="1.7"
+               target="1.7">
+        </javac>
+        <jar destfile="./dist/proxy.jar" basedir="./build">
+        <manifest>
+      <attribute name="Main-Class"
+            value="com.meituan.tools.proxy.DemoStarter"/>
+    </manifest>
+        </jar>
+</target>
+</project>
