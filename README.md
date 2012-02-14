@@ -12,10 +12,10 @@ Java Http Proxy Framework
 ## 立即开始
 
 1. 下载[proxy.jar](https://github.com/zms351/JavaHttpProxy/raw/master/dist/proxy.jar)。   
-2. 双击这个jar文件即可（windows/linux/mac即可）。   
+2. 双击这个jar文件即可（windows/linux/mac皆可）。   
 3. 如果不行，下载[start.bat](https://github.com/zms351/JavaHttpProxy/raw/master/dist/start.bat)这个启动脚本，用脚本启动，这个启动脚本也可以在linux/mac下执行（可能需要chmod a+x)。   
 4. 效果是，在**58088**端口侦听，创立一个Http代理，启动浏览器，设置代理为localhost:58088，试试看。   
-默认有两个Plugin，其中一个会把所有的通讯内容记录到files目录下。
+默认有两个Plugin，其中一个会把所有的通讯内容记录到自动创建的files目录下。
 
 ## 这有什么用？
 
