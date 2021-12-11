@@ -5,16 +5,15 @@ import com.meituan.tools.proxy.interceptors.ComboInterceptor;
 import com.meituan.tools.proxy.interceptors.GZIPInterceptor;
 import com.meituan.tools.proxy.interceptors.LogRequestInterceptor;
 
-import java.io.Closeable;
-import java.io.File;
-import java.io.IOException;
-import java.net.InetSocketAddress;
-import java.net.ServerSocket;
-import java.net.SocketAddress;
+import javax.net.ssl.*;
+import java.io.*;
+import java.net.*;
+import java.security.KeyStore;
 
 public class JavaHttpProxy implements Closeable {
     
-    ServerSocket serverSocket;    
+    ServerSocket serverSocket;
+    SSLServerSocket sslServerSocket;
     
     public JavaHttpProxy(String host, int port,RequestInterceptor interceptor) throws IOException {
         this.interceptor=interceptor;
@@ -26,16 +25,69 @@ public class JavaHttpProxy implements Closeable {
             serverSocket.bind(address);
         }
     }
+
+    private SSLContext createSSLContext(){
+        try{
+            KeyStore keyStore = KeyStore.getInstance("JKS");
+            String name=this.getClass().getName();
+            name=name.substring(0,name.lastIndexOf('.')).replace('.','/')+"/key/test.keystore";
+            try(InputStream input=this.getClass().getResourceAsStream(name)) {
+                keyStore.load(input, "123456".toCharArray());
+            }
+
+            // Create key manager
+            KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance("SunX509");
+            keyManagerFactory.init(keyStore, "123456".toCharArray());
+            KeyManager[] km = keyManagerFactory.getKeyManagers();
+
+            // Create trust manager
+            TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance("SunX509");
+            trustManagerFactory.init(keyStore);
+            TrustManager[] tm = trustManagerFactory.getTrustManagers();
+
+            // Initialize SSLContext
+            SSLContext sslContext = SSLContext.getInstance("TLSv1");
+            sslContext.init(km,  tm, null);
+
+            return sslContext;
+        } catch (Exception ex){
+            ex.printStackTrace();
+            throw new RuntimeException(ex);
+        }
+    }
+
+    protected void initHttps(String host, int port) throws Exception {
+        SSLContext sslContext = this.createSSLContext();
+
+        SSLServerSocketFactory sslServerSocketFactory = sslContext.getServerSocketFactory();
+        SSLServerSocket sslServerSocket;
+        if(host==null || host.length()<1 || "null".equalsIgnoreCase(host)) {
+            sslServerSocket = (SSLServerSocket) sslServerSocketFactory.createServerSocket(port+1);
+        } else {
+            sslServerSocket = (SSLServerSocket) sslServerSocketFactory.createServerSocket(port+1,0,Inet4Address.getByName(host));
+        }
+        this.sslServerSocket=sslServerSocket;
+    }
     
     public void start() {
         Executors.getInstance().submitCommon(new AcceptThread(this));
+        Executors.getInstance().submitCommon(new Accept2Thread(this));
     }
 
     @Override
     public void close() throws IOException {
-        serverSocket.close();
-        if(interceptor!=null) {
-            interceptor.close();
+        try {
+            try {
+                serverSocket.close();
+            } finally {
+                if (sslServerSocket != null) {
+                    sslServerSocket.close();
+                }
+            }
+        } finally {
+            if(interceptor!=null) {
+                interceptor.close();
+            }
         }
     }
     
@@ -58,7 +110,10 @@ public class JavaHttpProxy implements Closeable {
             return;
         }
         RequestInterceptor interceptor=new ComboInterceptor(new GZIPInterceptor(),new LogRequestInterceptor(new File(args[2])));
-        try (JavaHttpProxy proxy=new JavaHttpProxy(args[0],Integer.parseInt(args[1]),interceptor)) {
+        final String host = args[0];
+        final int port = Integer.parseInt(args[1]);
+        try (JavaHttpProxy proxy=new JavaHttpProxy(host, port,interceptor)) {
+            proxy.initHttps(host,port);
             proxy.start();
             if(args.length>3) {
                 while(args[3]!=null) {

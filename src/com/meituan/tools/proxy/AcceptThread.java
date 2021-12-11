@@ -15,12 +15,16 @@ class AcceptThread implements Callable<Object> {
         this.parent=parent;
     }
 
+    protected ServerSocket getServer() {
+        return parent.serverSocket;
+    }
+
     @Override
     public Object call() throws Exception {
-        ServerSocket serverSocket=parent.serverSocket;
+        ServerSocket serverSocket=getServer();
         while(serverSocket.isBound()) {
             Socket socket=serverSocket.accept();
-            logger.debug("connection from %s",socket.getRemoteSocketAddress());
+            logger.debug("connection from %s (%d)",socket.getRemoteSocketAddress(),socket.getLocalPort());
             Executors.getInstance().submitCommon(new ProcessThread(parent,socket));
         }
         return this;
