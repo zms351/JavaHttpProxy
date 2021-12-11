@@ -15,6 +15,7 @@ public class JavaHttpProxy implements Closeable {
     
     ServerSocket serverSocket;
     SSLServerSocket sslServerSocket;
+    boolean enableHttps;
     
     public JavaHttpProxy(String host, int port,RequestInterceptor interceptor) throws IOException {
         this.interceptor=interceptor;
@@ -25,6 +26,7 @@ public class JavaHttpProxy implements Closeable {
             SocketAddress address=new InetSocketAddress(host,port);
             serverSocket.bind(address);
         }
+        this.enableHttps=Boolean.parseBoolean(System.getProperty("JavaHttpsProxy"));
     }
 
     private SSLContext createSSLContext(){
@@ -76,22 +78,26 @@ public class JavaHttpProxy implements Closeable {
     }
 
     protected void initHttps(String host, int port) throws Exception {
-        SSLContext sslContext = this.createSSLContext();
+        if(this.enableHttps) {
+            SSLContext sslContext = this.createSSLContext();
 
-        SSLServerSocketFactory sslServerSocketFactory = sslContext.getServerSocketFactory();
-        SSLServerSocket sslServerSocket;
-        if(host==null || host.length()<1 || "null".equalsIgnoreCase(host)) {
-            sslServerSocket = (SSLServerSocket) sslServerSocketFactory.createServerSocket(port+1);
-        } else {
-            sslServerSocket = (SSLServerSocket) sslServerSocketFactory.createServerSocket(port+1,0,Inet4Address.getByName(host));
+            SSLServerSocketFactory sslServerSocketFactory = sslContext.getServerSocketFactory();
+            SSLServerSocket sslServerSocket;
+            if (host == null || host.length() < 1 || "null".equalsIgnoreCase(host)) {
+                sslServerSocket = (SSLServerSocket) sslServerSocketFactory.createServerSocket(port + 1);
+            } else {
+                sslServerSocket = (SSLServerSocket) sslServerSocketFactory.createServerSocket(port + 1, 0, Inet4Address.getByName(host));
+            }
+            sslServerSocket.setEnabledCipherSuites(sslServerSocketFactory.getSupportedCipherSuites());
+            this.sslServerSocket = sslServerSocket;
         }
-        sslServerSocket.setEnabledCipherSuites(sslServerSocketFactory.getSupportedCipherSuites());
-        this.sslServerSocket=sslServerSocket;
     }
     
     public void start() {
         Executors.getInstance().submitCommon(new AcceptThread(this));
-        Executors.getInstance().submitCommon(new Accept2Thread(this));
+        if(this.enableHttps && sslServerSocket!=null) {
+            Executors.getInstance().submitCommon(new Accept2Thread(this));
+        }
     }
 
     @Override
