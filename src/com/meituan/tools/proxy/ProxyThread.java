@@ -2,6 +2,7 @@ package com.meituan.tools.proxy;
 
 import com.meituan.service.GarUtils;
 
+import javax.net.ssl.*;
 import java.io.*;
 import java.net.Socket;
 import java.util.*;
@@ -201,7 +202,14 @@ public class ProxyThread implements Callable<Object>, Constants, Closeable {
         try {
             String encoding = HeaderEncoding;
             close();
-            socket = new Socket(uriToks[1].toString(), ((Number) uriToks[2]).intValue());
+            if(this.parent.socket instanceof SSLSocket) {
+                SSLSocketFactory socketFactory = (SSLSocketFactory)
+                        SSLSocketFactory.getDefault();
+                socket=socketFactory.createSocket(uriToks[1].toString(), ((Number) uriToks[2]).intValue());
+                ((SSLSocket)socket).setEnabledCipherSuites(socketFactory.getSupportedCipherSuites());
+            } else {
+                socket = new Socket(uriToks[1].toString(), ((Number) uriToks[2]).intValue());
+            }
 
             DataOutputStream output = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream()));
             sendRequestHeaders(output, encoding);

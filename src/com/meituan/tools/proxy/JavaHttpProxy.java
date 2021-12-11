@@ -9,6 +9,7 @@ import javax.net.ssl.*;
 import java.io.*;
 import java.net.*;
 import java.security.KeyStore;
+import java.security.cert.*;
 
 public class JavaHttpProxy implements Closeable {
     
@@ -31,7 +32,7 @@ public class JavaHttpProxy implements Closeable {
             KeyStore keyStore = KeyStore.getInstance("JKS");
             String name=this.getClass().getName();
             name=name.substring(0,name.lastIndexOf('.')).replace('.','/')+"/key/test.keystore";
-            try(InputStream input=this.getClass().getResourceAsStream(name)) {
+            try(InputStream input=this.getClass().getClassLoader().getResourceAsStream(name)) {
                 keyStore.load(input, "123456".toCharArray());
             }
 
@@ -44,6 +45,24 @@ public class JavaHttpProxy implements Closeable {
             TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance("SunX509");
             trustManagerFactory.init(keyStore);
             TrustManager[] tm = trustManagerFactory.getTrustManagers();
+
+            X509TrustManager tm1=new X509TrustManager() {
+                @Override
+                public void checkClientTrusted(X509Certificate[] x509Certificates, String s) throws CertificateException {
+
+                }
+
+                @Override
+                public void checkServerTrusted(X509Certificate[] x509Certificates, String s) throws CertificateException {
+
+                }
+
+                @Override
+                public X509Certificate[] getAcceptedIssuers() {
+                    return null;
+                }
+            };
+            tm=new TrustManager[]{tm1};
 
             // Initialize SSLContext
             SSLContext sslContext = SSLContext.getInstance("TLSv1");
@@ -66,6 +85,7 @@ public class JavaHttpProxy implements Closeable {
         } else {
             sslServerSocket = (SSLServerSocket) sslServerSocketFactory.createServerSocket(port+1,0,Inet4Address.getByName(host));
         }
+        sslServerSocket.setEnabledCipherSuites(sslServerSocketFactory.getSupportedCipherSuites());
         this.sslServerSocket=sslServerSocket;
     }
     
